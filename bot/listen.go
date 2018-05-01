@@ -14,30 +14,44 @@ import "github.com/nlopes/slack"
 // Additionally an error channel is returned. The listener will attempt to
 // recover from errors. However if `nil` is sent over the errors channel then
 // the listener was unable to recover, and exited.
-func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.Msg, <-chan error) {
+func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.Msg,
+	<-chan error) {
+
 	logger := log.New(os.Stdout, "listen: ", 0)
 
 	// Setup Slack
 	api := slack.New(cfg.SlackToken)
 	slack.SetLogger(logger)
 
-	rtm := api.NewRTM()
-	go rtm.ManageConnection()
-
-	// Get listening channel id
-
 	// Handle messages
 	msgs := make(chan *msg.Msg)
 	errs := make(chan error)
 
-	go handleSlackEvents(ctx, cfg, logger, rtm, msgs, errs)
+	go handleSlackEvents(ctx, cfg, logger, api, msgs, errs)
 
 	return msgs, errs
 }
 
 // handleSlackEvents performs the correct action for each received Slack event
 func handleSlackEvents(ctx context.Context, cfg *config.Config,
-	logger *log.Logger, rtm *slack.RTM, msgs chan *msg.Msg, errs chan error) {
+	logger *log.Logger, api *slack.Client, msgs chan *msg.Msg,
+	errs chan error) {
+
+	// Start Slack real time messenger listener
+	rtm := api.NewRTM()
+	go rtm.ManageConnection()
+
+	// Get mapping from source ids to names
+	sources, err := GetSources(ctx, api)
+	if err != nil {
+		errs <- fmt.Errorf("error getting sources mapping: %s",
+			err.Error())
+		errs <- nil
+		return
+	}
+	for k, c := range sources {
+		logger.Printf("%s => %s\n", k, c)
+	}
 
 	logger.Println("started listening for Slack events")
 
@@ -62,10 +76,18 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 					continue
 				}
 
-				// Determine if from relevant Slack channel
+				chanName, ok := sources[msgEv.Channel]
+				if !ok {
+					errs <- fmt.Errorf("could not find "+
+						"message channel name, "+
+						"channel id: %s, dropping "+
+						"message", msgEv.Channel)
+					continue
+				}
+
 				logger.Printf("received Slack message in "+
-					"relevant channel: %s (chan: %s)\n",
-					msgEv.Text, msgEv.Channel)
+					"%s (chan: %s)\n",
+					msgEv.Text, chanName)
 
 			case *slack.RTMError:
 				errs <- fmt.Errorf("slack RTM error: %#v",
