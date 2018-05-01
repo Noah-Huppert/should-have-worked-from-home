@@ -42,6 +42,8 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 	go rtm.ManageConnection()
 
 	// Get mapping from source ids to names
+	logger.Println("retrieving workspace metadata")
+
 	sources, err := GetSources(ctx, api)
 	if err != nil {
 		errs <- fmt.Errorf("error getting sources mapping: %s",
@@ -49,8 +51,9 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 		errs <- nil
 		return
 	}
-	for k, c := range sources {
-		logger.Printf("%s => %s\n", k, c)
+
+	for _, v := range sources {
+		logger.Println(v)
 	}
 
 	logger.Println("started listening for Slack events")
