@@ -110,15 +110,23 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 	source, ok := sources[sourceId]
 
 	if !ok {
-		s, err := libslack.GetConversation(ctx, api, sourceId)
+		s, err := libslack.GetSource(ctx, api, sourceId)
 		if err != nil {
-			errs <- err
+			errs <- fmt.Errorf("error finding message source: %s",
+				err.Error())
 			return
 		}
+
 		sources[sourceId] = s
 		source = s
 	}
 
+	// TODO: Load sender of message
+	// TODO: Construct Msg instance
+	// TODO: Record time message received
+	// TODO: Send Msg instance in channel
+
+	msg := msg.NewMsg()
 	logger.Printf("received Slack message: %s, from: %s\n", msg.Text,
 		source)
 }
