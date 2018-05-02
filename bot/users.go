@@ -1,12 +1,13 @@
 package bot
 
 import "github.com/nlopes/slack"
+import "github.com/Noah-Huppert/should-have-worked-from-home/msg"
 import "fmt"
 import "context"
 
-// GetUsers returns a mapping from Slack user ids to human readable names
+// GetUsers returns a mapping from Slack user ids to Sources
 func GetUsers(ctx context.Context, api *slack.Client) (
-	map[string]string, error) {
+	map[string]*msg.Source, error) {
 
 	// Get users from API
 	users, err := api.GetUsersContext(ctx)
@@ -16,10 +17,11 @@ func GetUsers(ctx context.Context, api *slack.Client) (
 	}
 
 	// Map
-	mapping := make(map[string]string)
+	mapping := make(map[string]*msg.Source)
 
 	for _, u := range users {
-		mapping[u.ID] = u.Name
+		s := msg.NewSource(u.ID, u.Name, msg.User)
+		mapping[u.ID] = s
 	}
 
 	return mapping, nil

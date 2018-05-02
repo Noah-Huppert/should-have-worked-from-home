@@ -16,12 +16,14 @@ func GetSources(ctx context.Context, api *slack.Client) (
 			err.Error())
 	}
 
-	// Get channels
-	chans, err := GetChannels(ctx, api)
-	if err != nil {
-		return nil, fmt.Errorf("error getting channels: %s",
-			err.Error())
-	}
+	/*
+		// Get channels
+			chans, err := GetChannels(ctx, api)
+			if err != nil {
+				return nil, fmt.Errorf("error getting channels: %s",
+					err.Error())
+			}
+	*/
 
 	// Get conversations
 	convs, err := GetConversations(ctx, api)
@@ -34,18 +36,18 @@ func GetSources(ctx context.Context, api *slack.Client) (
 	mapping := make(map[string]*msg.Source)
 
 	for k, v := range users {
-		s := msg.NewUserSource(k, v)
-		mapping[k] = s
+		mapping[k] = v
 	}
 
-	for k, v := range chans {
-		s := msg.NewChannelSource(k, v)
-		mapping[k] = s
-	}
+	/*
+		for k, v := range chans {
+			s := msg.NewChannelSource(k, v)
+			mapping[k] = s
+		}
+	*/
 
 	for k, v := range convs {
-		s := msg.NewChannelSource(k, v)
-		mapping[k] = s
+		mapping[k] = v
 	}
 
 	return mapping, nil

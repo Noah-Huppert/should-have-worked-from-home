@@ -1,6 +1,7 @@
 package bot
 
 import "github.com/Noah-Huppert/should-have-worked-from-home/msg"
+import "github.com/Noah-Huppert/should-have-worked-from-home/libslack"
 import "github.com/Noah-Huppert/should-have-worked-from-home/config"
 import "os"
 import "log"
@@ -37,24 +38,12 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 	logger *log.Logger, api *slack.Client, msgs chan *msg.Msg,
 	errs chan error) {
 
+	// sources holds a mapping from Slack ids to Source instances
+	sources := make(map[string]*msg.Source)
+
 	// Start Slack real time messenger listener
 	rtm := api.NewRTM()
 	go rtm.ManageConnection()
-
-	// Get mapping from source ids to names
-	logger.Println("retrieving workspace metadata")
-
-	sources, err := GetSources(ctx, api)
-	if err != nil {
-		errs <- fmt.Errorf("error getting sources mapping: %s",
-			err.Error())
-		errs <- nil
-		return
-	}
-
-	for _, v := range sources {
-		logger.Println(v)
-	}
 
 	logger.Println("started listening for Slack events")
 
@@ -65,36 +54,18 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 			errs <- nil
 			return
 
-		case msg := <-rtm.IncomingEvents:
-			switch msg.Data.(type) {
+		case event := <-rtm.IncomingEvents:
+			switch event.Data.(type) {
 			case *slack.ConnectedEvent:
 				logger.Println("successfully connected to Slack API")
 
 			case *slack.MessageEvent:
-				msgEv, ok := msg.Data.(*slack.MessageEvent)
-				if !ok {
-					errs <- fmt.Errorf("error converting "+
-						"message to MessageEvent "+
-						"type: %#v", msg)
-					continue
-				}
-
-				chanName, ok := sources[msgEv.Channel]
-				if !ok {
-					errs <- fmt.Errorf("could not find "+
-						"message channel name, "+
-						"channel id: %s, dropping "+
-						"message", msgEv.Channel)
-					continue
-				}
-
-				logger.Printf("received Slack message in "+
-					"%s (chan: %s)\n",
-					msgEv.Text, chanName)
+				handleMessage(ctx, api, logger, sources, event,
+					msgs, errs)
 
 			case *slack.RTMError:
 				errs <- fmt.Errorf("slack RTM error: %#v",
-					msg)
+					event)
 
 			case *slack.InvalidAuthEvent:
 				errs <- fmt.Errorf("invalid Slack " +
@@ -109,4 +80,45 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 			}
 		}
 	}
+}
+
+// handleMessage is invoked when a Slack message event is received
+func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
+	sources map[string]*msg.Source, event slack.RTMEvent,
+	msgs chan *msg.Msg, errs chan error) {
+
+	msg, ok := event.Data.(*slack.MessageEvent)
+	if !ok {
+		errs <- fmt.Errorf("error converting message to MessageEvent "+
+			"type: %#v", msg)
+		return
+	}
+
+	/*
+		chanName, ok := sources[msgEv.Channel]
+		if !ok {
+			errs <- fmt.Errorf("could not find "+
+				"message channel name, "+
+				"channel id: %s, dropping "+
+				"message", msgEv.Channel)
+			continue
+		}
+	*/
+
+	// Lazy load message source
+	sourceId := msg.Channel
+	source, ok := sources[sourceId]
+
+	if !ok {
+		s, err := libslack.GetConversation(ctx, api, sourceId)
+		if err != nil {
+			errs <- err
+			return
+		}
+		sources[sourceId] = s
+		source = s
+	}
+
+	logger.Printf("received Slack message: %s, from: %s\n", msg.Text,
+		source)
 }
