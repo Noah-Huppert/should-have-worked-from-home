@@ -13,7 +13,7 @@ type Msg struct {
 	Sender *Source
 
 	// SentAt is the time the message was sent
-	SentAt time.Time
+	SentAt *time.Time
 
 	// Subject the user who should have worked from home today
 	Subject *Source
@@ -24,15 +24,15 @@ type Msg struct {
 
 // String returns a text representation of a message
 func (m Msg) String() string {
-	return fmt.Sprintf("In: %s\n"+
+	return fmt.Sprintf("[In: %s\n"+
 		"Sender: %s\n"+
 		"SentAt: %s\n"+
 		"Subject: %s\n"+
-		"Text: %s", m.In, m.Sender, m.SentAt, m.Subject, m.Text)
+		"Text: %s]", m.In, m.Sender, m.SentAt, m.Subject, m.Text)
 }
 
 // New creates a new Msg
-func New(in *Source, sender *Source, sentAt time.Time, subject *Source,
+func NewMsg(in *Source, sender *Source, sentAt *time.Time, subject *Source,
 	text string) *Msg {
 
 	return &Msg{
