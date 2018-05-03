@@ -47,6 +47,8 @@ func main() {
 
 		case msg := <-msgs:
 			logger.Printf("received message: %s", msg)
+			// TODO: Use Google Sheets API to record result
+			// TODO: Send response back to subject
 		}
 	}
 }
