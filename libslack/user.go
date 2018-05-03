@@ -6,8 +6,12 @@ import "context"
 import "fmt"
 
 // GetUser returns a Source representing a Slack user
-func GetUser(ctx context.Context, api *slack.Client, id string) (*msg.Source,
-	error) {
+func GetUser(ctx context.Context, api *slack.Client,
+	sources map[string]*msg.Source, id string) (*msg.Source, error) {
+
+	if user, ok := sources[id]; ok {
+		return user, nil
+	}
 
 	// Get user from API
 	user, err := api.GetUserInfoContext(ctx, id)
