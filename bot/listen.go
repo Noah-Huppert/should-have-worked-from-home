@@ -8,6 +8,9 @@ import "log"
 import "fmt"
 import "context"
 import "github.com/nlopes/slack"
+import "regexp"
+
+var RelevantMsgExp *regexp.Regexp = regexp.MustCompile(".*[iI].*[wW]orked.*[fF]rom.*[hH]ome.*")
 
 // Listen watches a Slack channel for a "I should have worked from home today"
 // message and signals a channel when one is received.
@@ -111,6 +114,8 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 	// TODO: Send Msg instance in channel
 
 	//msg := msg.NewMsg()
-	logger.Printf("received Slack message: %s, from: %s\n", msg.Text,
-		source)
+	match := RelevantMsgExp.MatchString(msg.Text)
+	logger.Printf("received Slack message: %s, from: %s, relevant %t\n", msg.Text,
+		source, match)
+
 }
