@@ -9,8 +9,11 @@ import "fmt"
 import "context"
 import "github.com/nlopes/slack"
 import "regexp"
+import "strings"
 
-var RelevantMsgExp *regexp.Regexp = regexp.MustCompile(".*[iI].*[wW]orked.*[fF]rom.*[hH]ome.*")
+// MsgSubjectExp extract the subject of a "should have worked from home" message
+// First capture group will either be "I" or a @ mention of a user
+var MsgSubjectExp *regexp.Regexp = regexp.MustCompile(".*([iI]|<@[A-Z0-9]*>).*[wW]orked.*[fF]rom.*[hH]ome.*")
 
 // Listen watches a Slack channel for a "I should have worked from home today"
 // message and signals a channel when one is received.
@@ -90,21 +93,21 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 	sources map[string]*msg.Source, event slack.RTMEvent,
 	msgs chan *msg.Msg, errs chan error) {
 
+	// Convert to MessageEvent
 	msg, ok := event.Data.(*slack.MessageEvent)
 	if !ok {
 		errs <- fmt.Errorf("error converting message to MessageEvent "+
-			"type: %#v", msg)
+			"type, skipping: %#v", msg)
 		return
 	}
 
-	// Lazy load message source
+	// Load message source
 	sourceId := msg.Channel
 
 	source, err := libslack.GetConversation(ctx, api, sources, sourceId)
-
 	if err != nil {
-		errs <- fmt.Errorf("error finding message source: %s",
-			err.Error())
+		errs <- fmt.Errorf("error finding message source, skipping, "+
+			"message: %#v, error: %s", msg, err.Error())
 		return
 	}
 
@@ -113,9 +116,80 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 	// TODO: Record time message received
 	// TODO: Send Msg instance in channel
 
-	//msg := msg.NewMsg()
-	match := RelevantMsgExp.MatchString(msg.Text)
-	logger.Printf("received Slack message: %s, from: %s, relevant %t\n", msg.Text,
-		source, match)
+	// Remove @ mentions of bot from message
+	text, err := removeSelfMentions(ctx, api, sources, msg.Text)
+	if err != nil {
+		errs <- fmt.Errorf("error processing message, skipping, "+
+			"message: %#v, error: %s", msg, err.Error())
+		return
+	}
 
+	// Get subject of message
+	subject, err := getMessageSubject(ctx, api, sources, msg, text)
+	if err != nil {
+		errs <- fmt.Errorf("error determining message subject, "+
+			"skipping, message: %#v, error: %s", msg, err.Error())
+		return
+	}
+
+	logger.Printf("received Slack message: %s, from: %s, subject %s\n",
+		msg.Text, source, subject)
+
+}
+
+// getMessageSubject determines who the message is referring to. Returns a nil
+// source if the message is not a "should have worked from home today" style
+// message.
+func getMessageSubject(ctx context.Context, api *slack.Client,
+	sources map[string]*msg.Source, msg *slack.MessageEvent,
+	msgText string) (*msg.Source, error) {
+
+	// Match
+	matches := MsgSubjectExp.FindStringSubmatch(msgText)
+
+	// Determine if "should have worked from home today" message
+	if len(matches) == 0 {
+		// Not in "should have worked from home today" form
+		return nil, nil
+	}
+
+	// Get match subject
+	subjText := matches[1]
+
+	// Get user message is referencing
+	var id string
+
+	// If message is referencing sender of message
+	if subjText == "i" || subjText == "I" {
+		id = msg.User
+	} else { // Message is referencing other user
+		// Extract id from @ mention format
+		// <@ID>
+		id = subjText[2 : len(subjText)-1]
+	}
+
+	user, err := libslack.GetUser(ctx, api, sources, id)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving user referenced "+
+			"in message: %s", err.Error())
+	}
+
+	return user, nil
+
+}
+
+// removeSelfMentions strips a message of an @ mentions of the bot user
+func removeSelfMentions(ctx context.Context, api *slack.Client,
+	sources map[string]*msg.Source, msg string) (string, error) {
+
+	// Get bot identity
+	ident, err := libslack.GetIdentity(ctx, api, sources)
+	if err != nil {
+		return "", fmt.Errorf("error stripping mentions of bot out "+
+			"of message: %s", err.Error())
+	}
+
+	// Replace
+	mentionStr := fmt.Sprintf("<@%s>", ident.ID)
+	return strings.Replace(msg, mentionStr, "", -1), nil
 }

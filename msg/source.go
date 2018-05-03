@@ -11,6 +11,14 @@ const (
 	IM      SourceType = "im"
 )
 
+// SourcesBotSelfKey is the special key the bot's own identity will be stored
+// under in the sources cache.
+//
+// This allows one to check the sources cache for the bot's identity without
+// knowing the id of the bot (As we can only know the id of the bot by calling
+// libslack.GetIdentity).
+const SourcesBotSelfKey string = "self"
+
 // Source indicates where a Slack message came from
 type Source struct {
 	// ID is the Slack ID of the source
