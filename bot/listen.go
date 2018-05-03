@@ -94,31 +94,15 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 		return
 	}
 
-	/*
-		chanName, ok := sources[msgEv.Channel]
-		if !ok {
-			errs <- fmt.Errorf("could not find "+
-				"message channel name, "+
-				"channel id: %s, dropping "+
-				"message", msgEv.Channel)
-			continue
-		}
-	*/
-
 	// Lazy load message source
 	sourceId := msg.Channel
-	source, ok := sources[sourceId]
 
-	if !ok {
-		s, err := libslack.GetConversation(ctx, api, sources, sourceId)
-		if err != nil {
-			errs <- fmt.Errorf("error finding message source: %s",
-				err.Error())
-			return
-		}
+	source, err := libslack.GetConversation(ctx, api, sources, sourceId)
 
-		sources[sourceId] = s
-		source = s
+	if err != nil {
+		errs <- fmt.Errorf("error finding message source: %s",
+			err.Error())
+		return
 	}
 
 	// TODO: Load sender of message

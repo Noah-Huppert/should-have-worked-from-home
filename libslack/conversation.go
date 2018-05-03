@@ -10,6 +10,7 @@ import "strings"
 func GetConversation(ctx context.Context, api *slack.Client,
 	sources map[string]*msg.Source, id string) (*msg.Source, error) {
 
+	// If in sources cache
 	if conv, ok := sources[id]; ok {
 		return conv, nil
 	}
@@ -31,31 +32,13 @@ func GetConversation(ctx context.Context, api *slack.Client,
 	if len(s.Name) == 0 {
 		// If conversation doesn't have name, make one out of member
 		// names
-		memberNames := []string{}
-
-		members, err := GetConversationMembers(ctx, api, s.ID)
+		name, err := makeConversationName(ctx, api, sources, s.ID)
 		if err != nil {
-			return nil, fmt.Errorf("error getting conversation "+
-				"members: %s", err.Error())
+			return nil, fmt.Errorf("error making name for "+
+				"conversation: %s", err.Error())
 		}
 
-		for _, memberId := range members {
-			user, err := GetUser(ctx, api, sources, memberId)
-			if err != nil {
-				return nil, fmt.Errorf("error retrieving "+
-					"conversation member, id: %s, err: %s",
-					memberId, err.Error())
-			}
-
-			memberNames = append(memberNames, user.Name)
-		}
-
-		if len(memberNames) == 0 {
-			return nil, fmt.Errorf("no member names retrieved for "+
-				"conversation: %#v", conv)
-		}
-
-		s.Name = strings.Join(memberNames, "--")
+		s.Name = name
 	}
 
 	// -- -- Type
@@ -68,5 +51,41 @@ func GetConversation(ctx context.Context, api *slack.Client,
 			"conversation type: %#v", conv)
 	}
 
+	// Add to sources cache
+	sources[s.ID] = s
+
 	return s, nil
+}
+
+// makeConversationName creates a name for a conversation out of the members
+// of the conversation
+func makeConversationName(ctx context.Context, api *slack.Client,
+	sources map[string]*msg.Source, id string) (string, error) {
+
+	// Get member ids
+	members, err := GetConversationMembers(ctx, api, id)
+	if err != nil {
+		return "", fmt.Errorf("error getting conversation "+
+			"members: %s", err.Error())
+	}
+
+	// Get member names
+	memberNames := []string{}
+	for _, memberId := range members {
+		user, err := GetUser(ctx, api, sources, memberId)
+		if err != nil {
+			return "", fmt.Errorf("error retrieving "+
+				"conversation member, id: %s, err: %s",
+				memberId, err.Error())
+		}
+
+		memberNames = append(memberNames, user.Name)
+	}
+
+	if len(memberNames) == 0 {
+		return "", fmt.Errorf("no member names retrieved for "+
+			"conversation, id: %#v", id)
+	}
+
+	return strings.Join(memberNames, "--"), nil
 }

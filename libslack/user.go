@@ -9,6 +9,7 @@ import "fmt"
 func GetUser(ctx context.Context, api *slack.Client,
 	sources map[string]*msg.Source, id string) (*msg.Source, error) {
 
+	// If in sources cache
 	if user, ok := sources[id]; ok {
 		return user, nil
 	}
@@ -22,6 +23,9 @@ func GetUser(ctx context.Context, api *slack.Client,
 
 	// Make source
 	s := msg.NewSource(user.ID, user.Name, msg.User)
+
+	// Add to sources cache
+	sources[s.ID] = s
 
 	return s, nil
 }
