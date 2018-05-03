@@ -55,7 +55,7 @@ func GetConversation(ctx context.Context, api *slack.Client,
 				"conversation: %#v", conv)
 		}
 
-		s.Name = strings.Join(memberNames, ", ")
+		s.Name = strings.Join(memberNames, "--")
 	}
 
 	// -- -- Type
