@@ -13,8 +13,15 @@ import "strings"
 
 // MsgSubjectExp extract the subject of a "should have worked from home" message
 // First capture group will either be "I" or a @ mention of a user
+// Second capture group will hold the rest of a message which may contain a
+//	"b/c reason I should have worked fro home today" piece of message
 var MsgSubjectExp *regexp.Regexp = regexp.MustCompile(".*([iI]|<@[A-Z0-9]*>)" +
 	".*[wW]orked.*[fF]rom.*[hH]ome.*")
+
+// MsgReasonExp extract the reason for a "should have worked from home" message
+// The first capture group is the reason
+var MsgReasonExp *regexp.Regexp = regexp.MustCompile(".*(?:b\\/{0,1}c|because" +
+	") +(.*)")
 
 // Listen watches a Slack channel for a "I should have worked from home today"
 // message and signals a channel when one is received.
@@ -143,12 +150,42 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 		return
 	}
 
-	// Send message to channel if a "should have worked from home" style
-	// message
+	// If "should have worked from home" style message
 	if subject != nil {
-		m := msg.NewMsg(source, sender, sentAt, subject, msgEvent.Text)
+		// Transform message text @ mentions to be human readable
+		transformedTxt, err := libslack.TransformMentions(ctx, api,
+			sources, msgEvent.Text)
+		if err != nil {
+			errs <- fmt.Errorf("error transforming message @ "+
+				"mentions to human readable format, "+
+				"skipping..., message: %#v, error: %s",
+				msgEvent, err.Error())
+			return
+		}
+
+		// Get reason from message
+		reason := getMessageReason(transformedTxt)
+
+		// Send to channel
+		m := msg.NewMsg(source, sender, sentAt, subject, reason,
+			transformedTxt)
 		msgs <- m
 	}
+}
+
+// getMessageReason determines the reason a "should have worked from home
+// today" was sent.
+func getMessageReason(msgText string) string {
+	// Match
+	matches := MsgReasonExp.FindStringSubmatch(msgText)
+
+	// If no reason in message
+	if len(matches) == 0 {
+		return ""
+	}
+
+	// Get reason match
+	return matches[1]
 }
 
 // getMessageSubject determines who the message is referring to. Returns a nil
