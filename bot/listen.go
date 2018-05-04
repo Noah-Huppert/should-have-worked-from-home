@@ -29,7 +29,7 @@ var MsgReasonExp *regexp.Regexp = regexp.MustCompile(".*(?:b\\/{0,1}c|because" +
 // Additionally an error channel is returned. The listener will attempt to
 // recover from errors. However if `nil` is sent over the errors channel then
 // the listener was unable to recover, and exited.
-func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.Msg,
+func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.TargetMsg,
 	<-chan error) {
 
 	logger := log.New(os.Stdout, "listen: ", 0)
@@ -39,7 +39,7 @@ func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.Msg,
 	slack.SetLogger(logger)
 
 	// Handle messages
-	msgs := make(chan *msg.Msg)
+	msgs := make(chan *msg.TargetMsg)
 	errs := make(chan error)
 
 	go handleSlackEvents(ctx, cfg, logger, api, msgs, errs)
@@ -49,7 +49,7 @@ func Listen(ctx context.Context, cfg *config.Config) (<-chan *msg.Msg,
 
 // handleSlackEvents performs the correct action for each received Slack event
 func handleSlackEvents(ctx context.Context, cfg *config.Config,
-	logger *log.Logger, api *slack.Client, msgs chan *msg.Msg,
+	logger *log.Logger, api *slack.Client, msgs chan *msg.TargetMsg,
 	errs chan error) {
 
 	// sources holds a mapping from Slack ids to Source instances
@@ -99,7 +99,7 @@ func handleSlackEvents(ctx context.Context, cfg *config.Config,
 // handleMessage is invoked when a Slack message event is received
 func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 	sources map[string]*msg.Source, event slack.RTMEvent,
-	msgs chan *msg.Msg, errs chan error) {
+	msgs chan *msg.TargetMsg, errs chan error) {
 
 	// Convert to MessageEvent
 	msgEvent, ok := event.Data.(*slack.MessageEvent)
@@ -167,7 +167,7 @@ func handleMessage(ctx context.Context, api *slack.Client, logger *log.Logger,
 		reason := getMessageReason(transformedTxt)
 
 		// Send to channel
-		m := msg.NewMsg(source, sender, sentAt, subject, reason,
+		m := msg.NewTargetMsg(source, sender, sentAt, subject, reason,
 			transformedTxt)
 		msgs <- m
 	}

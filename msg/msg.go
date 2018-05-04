@@ -3,9 +3,9 @@ package msg
 import "time"
 import "fmt"
 
-// Msg provides details about a Slack message which indicates a certain user
-// should have worked from home today
-type Msg struct {
+// TargetMsg provides details about a Slack message which indicates a certain
+// user should have worked from home today
+type TargetMsg struct {
 	// In is where the message was sent from
 	In *Source
 
@@ -27,7 +27,7 @@ type Msg struct {
 }
 
 // String returns a text representation of a message
-func (m Msg) String() string {
+func (m TargetMsg) String() string {
 	sentAtStr := fmt.Sprintf("%d/%d/%d %d:%d", m.SentAt.Month(),
 		m.SentAt.Day(), m.SentAt.Year(), m.SentAt.Hour(), m.SentAt.Minute())
 
@@ -36,11 +36,11 @@ func (m Msg) String() string {
 		m.Reason, m.Text)
 }
 
-// New creates a new Msg
-func NewMsg(in *Source, sender *Source, sentAt *time.Time, subject *Source,
-	reason string, text string) *Msg {
+// NewTargetMsg creates a new TargetMsg
+func NewTargetMsg(in *Source, sender *Source, sentAt *time.Time,
+	subject *Source, reason string, text string) *TargetMsg {
 
-	return &Msg{
+	return &TargetMsg{
 		In:      in,
 		Sender:  sender,
 		SentAt:  sentAt,
