@@ -3,3 +3,6 @@
 
 # Go
 vendor
+
+# GAPI
+gapi_private_key.json
