@@ -2,10 +2,10 @@ package main
 
 import "github.com/Noah-Huppert/should-have-worked-from-home/config"
 import "github.com/Noah-Huppert/should-have-worked-from-home/bot"
-
-//import "github.com/Noah-Huppert/should-have-worked-from-home/sheets"
+import "github.com/Noah-Huppert/should-have-worked-from-home/sheets"
 import "github.com/Noah-Huppert/should-have-worked-from-home/gapi"
 import "os"
+import "golang.org/x/oauth2"
 import "os/signal"
 import "syscall"
 import "log"
@@ -31,18 +31,27 @@ func main() {
 
 	// Load config
 	cfg, err := config.New()
-	if err == config.ErrNoGAPIOAuthToken { // Get OAuth token from user
-		// Get OAuth token URL
-		authURL, err := gapi.GetTokenURL(cfg)
+	var gapiOAuthConfig *oauth2.Config
+
+	// Get authorization token from user
+	if err == config.ErrNoGAPIAccessToken {
+		// Get GAPI OAuth config
+		gapiOAuthConfig, err := gapi.GetOAuthConfig(cfg)
 		if err != nil {
-			logger.Fatalf("error retrieving GAPI auth token URL: %s",
-				err.Error())
+			logger.Fatalf("error retrieving GAPI OAuth "+
+				"configuration: %s", err.Error())
+			return
 		}
 
-		logger.Printf("No GAPI OAuth token provided, please navigate "+
-			"to the following URL and save your GAPI OAuth token "+
-			" in the \"%s\" environment variable: \n\n%s",
-			config.EnvKeyGAPIOAuthToken, authURL)
+		// Get GAPI access token
+		err = gapi.ReadAuthorizationCode(ctx, cfg, logger, gapiOAuthConfig)
+		if err != nil {
+			logger.Fatalf("error reading GAPI authorization "+
+				"code: %s", err.Error())
+		}
+
+		// User should relaunch program with GAPI access token
+		// environment variable
 		return
 	}
 	if err != nil {
@@ -50,20 +59,18 @@ func main() {
 	}
 
 	// Make Sheet client
-	/*
-		svc, err := sheets.NewService(ctx, cfg)
-		if err != nil {
-			logger.Fatalf("error creating spreadsheet service: %s",
-				err.Error())
-		}
+	svc, err := sheets.NewService(ctx, cfg, gapiOAuthConfig)
+	if err != nil {
+		logger.Fatalf("error creating GAPI Sheets service: %s",
+			err.Error())
+	}
 
-		sheet, err := sheets.NewSheet(svc, cfg.SpreadsheetID,
-			cfg.SpreadsheetPageName)
-		if err != nil {
-			logger.Fatalf("error creating sheet: %s", err.Error())
-		}
-		logger.Println(sheet)
-	*/
+	sheet, err := sheets.NewSheet(svc, cfg.SpreadsheetID,
+		cfg.SpreadsheetPageName)
+	if err != nil {
+		logger.Fatalf("error creating sheet: %s", err.Error())
+	}
+	logger.Println(sheet)
 
 	// Start listener
 	msgs, errs := bot.Listen(ctx, cfg)

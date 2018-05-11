@@ -8,9 +8,9 @@ import "errors"
 // provided by
 const EnvKeySlackToken string = "SLACK_TOKEN"
 
-// EnvKeyGAPIOAuthToken is the environment variable key the GAPI OAuth token
+// EnvKeyGAPIAccessToken is the environment variable key the GAPI access token
 // will be provided by
-const EnvKeyGAPIOAuthToken string = "GAPI_OAUTH_TOKEN"
+const EnvKeyGAPIAccessToken string = "GAPI_ACCESS_TOKEN"
 
 // EnvKeyGAPIPrivateKeyPath is the environment variable key the path to the
 // GAPI private key file will be provided by
@@ -28,16 +28,16 @@ const EnvKeySpreadsheetPageName string = "SPREADSHEET_PAGE_NAME"
 // provided
 const DefaultGAPIPrivateKeyPath string = "gapi_private_key.json"
 
-// ErrNoGAPIOAuthToken indicates a GAPI OAuth token was not provided
-var ErrNoGAPIOAuthToken error = errors.New("no GAPI OAuth token provided")
+// ErrNoGAPIAccessToken indicates a GAPI access token was not provided
+var ErrNoGAPIAccessToken error = errors.New("no GAPI access token provided")
 
 type Config struct {
 	// SlackToken is the Slack API token
 	SlackToken string
 
-	// GAPIOAuthToken is the OAuth token used to authenticate with the
-	// GAPI to access the user's spreadsheet
-	GAPIOAuthToken string
+	// GAPIAccessToken is the access token used to authenticate with the
+	// GAPI to get and modify a user's spreadsheet
+	GAPIAccessToken string
 
 	// GAPIPrivateKeyPath is the path to the Google API private key file.
 	// It defaults to DefaultGAPIPrivateKeyPath if not specified by an
@@ -57,8 +57,8 @@ type Config struct {
 // New constructs a new Config from environment variables. An error is returned
 // if any required environment variables are not set.
 //
-// If ErrNoGAPIOAuthToken is provided the user should be directed to retrieve a
-// GAPI OAuth token via the token URL.
+// If ErrNoGAPIAccessToken is provided the user should be directed to retrieve a
+// GAPI access token via the URL returned by gapi.GetTokenURL().
 func New() (*Config, error) {
 	// Get SlackToken
 	slackToken, ok := os.LookupEnv(EnvKeySlackToken)
@@ -73,12 +73,12 @@ func New() (*Config, error) {
 		gapiPrivateKeyPath = DefaultGAPIPrivateKeyPath
 	}
 
-	// Get GAPIOAuthToken
-	gapiOAuthToken, ok := os.LookupEnv(EnvKeyGAPIOAuthToken)
-	var gapiOAuthTokenErr error = nil
+	// Get GAPIAccessToken
+	gapiAccessToken, ok := os.LookupEnv(EnvKeyGAPIAccessToken)
+	var gapiAccessTokenErr error = nil
 	if !ok {
-		gapiOAuthToken = ""
-		gapiOAuthTokenErr = ErrNoGAPIOAuthToken
+		gapiAccessToken = ""
+		gapiAccessTokenErr = ErrNoGAPIAccessToken
 	}
 
 	// Get SpreadsheetID
@@ -98,15 +98,15 @@ func New() (*Config, error) {
 	// Make instance
 	c := &Config{
 		SlackToken:          slackToken,
-		GAPIOAuthToken:      gapiOAuthToken,
+		GAPIAccessToken:     gapiAccessToken,
 		GAPIPrivateKeyPath:  gapiPrivateKeyPath,
 		SpreadsheetID:       spreadsheetID,
 		SpreadsheetPageName: spreadsheetPageName,
 	}
 
-	// If error retrieving GAPI OAuth token
-	if gapiOAuthTokenErr != nil {
-		return c, gapiOAuthTokenErr
+	// If error retrieving GAPI access token
+	if gapiAccessTokenErr != nil {
+		return c, gapiAccessTokenErr
 	}
 
 	return c, nil
